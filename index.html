@@ -39,7 +39,9 @@
 
         /* === BACKGROUND & TYPOGRAPHY === */
         body {
-            background: radial-gradient(circle at top, #1a2f45, #0d1b2a 70%);
+            background: radial-gradient(circle at 20% 20%, rgba(42,80,113,0.4), transparent 40%),
+                        radial-gradient(circle at 80% 30%, rgba(173,40,63,0.25), transparent 40%),
+                        linear-gradient(135deg, #050c14, #0d1b2a 60%, #02060a);
             color: var(--text-light);
             font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
             min-height: 100vh;
@@ -56,29 +58,33 @@
 
         /* === GLASSMORPHISM UI COMPONENTS === */
         .glass-panel {
-            background: var(--glass-bg);
-            backdrop-filter: blur(12px);
-            -webkit-backdrop-filter: blur(12px);
-            border: 1px solid var(--glass-border);
-            border-radius: 12px;
-            box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.4);
+            background: rgba(10, 20, 35, 0.55);
+            backdrop-filter: blur(18px);
+            border: 1px solid rgba(255,255,255,0.08);
+            border-radius: 14px;
+            box-shadow: 
+                0 10px 40px rgba(0,0,0,0.6),
+                inset 0 0 25px rgba(255,255,255,0.03);
             padding: 1.5rem;
+            animation: fadeInSlideUp 0.8s ease forwards;
+            transition: all 0.4s ease;
             margin-bottom: 1.5rem;
-            animation: fadeInSlideUp 0.8s cubic-bezier(0.16, 1, 0.3, 1) forwards;
-            transition: transform 0.4s ease, box-shadow 0.4s ease;
         }
         .glass-panel:hover {
-            transform: translateY(-5px);
-            box-shadow: 0 15px 45px 0 rgba(0, 0, 0, 0.6), inset 0 0 20px rgba(255, 255, 255, 0.05);
+            transform: translateY(-6px);
+            box-shadow: 
+                0 20px 60px rgba(0,0,0,0.8),
+                0 0 20px rgba(42,80,113,0.4),
+                0 0 40px rgba(173,40,63,0.2);
         }
 
         /* === HEADER & FOOTER === */
         .app-header {
-            background: rgba(42, 80, 113, 0.85);
-            backdrop-filter: blur(15px);
-            border-bottom: 3px solid var(--accent-color);
+            background: rgba(10, 25, 45, 0.8);
+            backdrop-filter: blur(20px);
+            border-bottom: 2px solid rgba(173,40,63,0.6);
             padding: 1rem 2rem;
-            box-shadow: 0 4px 20px rgba(0,0,0,0.3);
+            box-shadow: 0 0 20px rgba(173,40,63,0.3);
             z-index: 1000;
         }
 
@@ -182,26 +188,26 @@
         }
 
         .btn-start {
-            background-color: var(--primary-color);
-            border: 1px solid #4a7091;
+            background: linear-gradient(135deg, #2a5071, #3c6e91);
+            border: none;
             color: white;
+            box-shadow: 0 0 10px rgba(42,80,113,0.5);
         }
         .btn-start:hover {
-            background-color: #1a4061;
-            transform: translateY(-2px);
-            box-shadow: 0 6px 15px rgba(42, 80, 113, 0.5);
+            transform: translateY(-2px) scale(1.03);
+            box-shadow: 0 0 20px rgba(42,80,113,0.9);
             color: white;
         }
 
         .btn-stop {
-            background-color: var(--accent-color);
-            border: 1px solid #cd485f;
+            background: linear-gradient(135deg, #ad283f, #e63946);
+            border: none;
             color: white;
+            box-shadow: 0 0 10px rgba(173,40,63,0.5);
         }
         .btn-stop:hover {
-            background-color: #8d081f;
-            transform: translateY(-2px);
-            box-shadow: 0 6px 15px rgba(173, 40, 63, 0.5);
+            transform: translateY(-2px) scale(1.03);
+            box-shadow: 0 0 20px rgba(173,40,63,0.9);
             color: white;
         }
 
@@ -213,22 +219,20 @@
         }
 
         .violation-card {
-            background: rgba(0, 0, 0, 0.4);
-            border-left: 4px solid var(--accent-color);
-            border-radius: 6px;
+            background: rgba(10, 20, 35, 0.6);
+            border-left: 3px solid #ff4d6d;
+            border-radius: 8px;
             padding: 12px;
             margin-bottom: 12px;
             display: flex;
             gap: 15px;
             align-items: center;
-            transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
-            animation: fadeInSlideUp 0.6s ease-out forwards;
+            transition: all 0.3s ease;
         }
+
         .violation-card:hover {
-            background: rgba(20, 30, 50, 0.8);
-            transform: scale(1.02) translateX(8px);
-            box-shadow: -5px 5px 15px rgba(0, 0, 0, 0.5);
-            border-left-color: #ff4757;
+            transform: translateX(6px) scale(1.02);
+            box-shadow: 0 0 15px rgba(255,77,109,0.5);
         }
 
         .violation-img {
