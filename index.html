@@ -217,8 +217,11 @@
     animation: borderGlow 4s ease-in-out infinite alternate;
     min-height: 340px;
   }
+
+  /* UPGRADE: AI Thinking Pulse */
   @keyframes borderGlow {
-    0%  { box-shadow: 0 0 0 1px rgba(42,80,113,0.2), 0 0 30px rgba(42,80,113,0.15), inset 0 0 60px rgba(0,0,0,0.6); }
+    0%  { box-shadow: 0 0 0 1px rgba(42,80,113,0.2), 0 0 20px rgba(42,80,113,0.15), inset 0 0 60px rgba(0,0,0,0.6); }
+    50% { box-shadow: 0 0 0 1px rgba(0,229,160,0.4), 0 0 40px rgba(0,229,160,0.3), inset 0 0 60px rgba(0,0,0,0.6); }
     100%{ box-shadow: 0 0 0 1px rgba(173,40,63,0.3), 0 0 50px rgba(173,40,63,0.2), inset 0 0 60px rgba(0,0,0,0.6); }
   }
 
@@ -248,6 +251,23 @@
     width: 100%; height: 100%;
     object-fit: cover;
     display: block;
+  }
+
+  /* UPGRADE: AI SCANNING LINE */
+  .scan-line {
+    position: absolute;
+    left: 0;
+    width: 100%;
+    height: 2px;
+    background: linear-gradient(90deg, transparent, #00e5a0, transparent);
+    box-shadow: 0 0 12px #00e5a0;
+    animation: scanMoveY 3s linear infinite;
+    z-index: 5;
+    opacity: 0.6;
+  }
+  @keyframes scanMoveY {
+    0% { top: 0%; }
+    100% { top: 100%; }
   }
 
   /* scanline on video */
@@ -717,7 +737,6 @@
 
 <div id="app">
 
-  <!-- HEADER -->
   <header>
     <div class="header-logo">
       <img src="YDLOGO.png" alt="YogiJi Digi Logo"/>
@@ -734,7 +753,6 @@
     </div>
   </header>
 
-  <!-- TICKER -->
   <div class="ticker-wrap">
     <div class="ticker">
       <span class="ticker-item">Helmet Detection Active</span>
@@ -744,7 +762,6 @@
       <span class="ticker-item">Camera Feed: RTSP Protocol</span>
       <span class="ticker-item">YOLO Detection Engine</span>
       <span class="ticker-item">Zero Compromise On Safety</span>
-      <!-- duplicate for seamless loop -->
       <span class="ticker-item">Helmet Detection Active</span>
       <span class="ticker-item">AI Engine v2.4 Running</span>
       <span class="ticker-item">YOGIJI DIGI Safety Suite</span>
@@ -755,15 +772,14 @@
     </div>
   </div>
 
-  <!-- MAIN -->
   <main>
 
-    <!-- LEFT: Camera -->
     <div class="panel-left">
       <div class="section-label">Live Camera Feed</div>
 
       <div class="video-wrapper" id="video-wrapper">
-        <!-- Placeholder shown before stream -->
+        <div class="scan-line" id="scan-line" style="display: none;"></div>
+
         <div class="no-stream" id="no-stream-msg">
           <svg class="no-stream-icon" viewBox="0 0 24 24" fill="none" stroke-width="1.5">
             <path d="M15 10l4.553-2.277A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M3 8a2 2 0 012-2h10a2 2 0 012 2v8a2 2 0 01-2 2H5a2 2 0 01-2-2V8z"/>
@@ -775,7 +791,6 @@
              onload="this.style.display='block'; document.getElementById('no-stream-msg').style.display='none';"
              onerror="this.style.display='none'; document.getElementById('no-stream-msg').style.display='flex';" />
 
-        <!-- HUD overlays -->
         <div class="video-hud">
           <div class="hud-badge">
             <div class="hud-dot" id="hud-dot"></div>
@@ -789,7 +804,6 @@
           DETECTING
         </div>
 
-        <!-- SVG Crosshair -->
         <svg class="hud-crosshair" width="50" height="50" viewBox="0 0 50 50" fill="none">
           <circle cx="25" cy="25" r="12" stroke="rgba(42,80,113,0.6)" stroke-width="1"/>
           <line x1="25" y1="8" x2="25" y2="17" stroke="rgba(42,80,113,0.6)" stroke-width="1"/>
@@ -801,7 +815,6 @@
         <div class="video-scan"></div>
       </div>
 
-      <!-- CONTROLS -->
       <div class="controls">
         <button class="btn btn-start" id="btn-start" onclick="startDetection(this)">
           <div class="btn-icon"></div>
@@ -817,7 +830,6 @@
         </div>
       </div>
 
-      <!-- STATS -->
       <div class="stats-bar">
         <div class="stat-item">
           <div class="stat-val red" id="stat-violations">5</div>
@@ -838,7 +850,6 @@
       </div>
     </div>
 
-    <!-- RIGHT: Violations -->
     <div class="panel-right">
       <div class="section-label">Violation Log</div>
 
@@ -851,14 +862,12 @@
         </div>
 
         <div class="violations-list" id="violations-list">
-          <!-- Populated by JS -->
-        </div>
+          </div>
       </div>
     </div>
 
   </main>
 
-  <!-- FOOTER -->
   <footer>
     <img src="yd-footer.png" alt="YogiJi Digi"/>
     <div class="footer-text">Helmet Detection System · AI Safety Suite · YOGIJI DIGI © 2025</div>
@@ -866,7 +875,6 @@
 
 </div>
 
-<!-- TOAST -->
 <div id="toast"></div>
 
 <script>
@@ -953,6 +961,7 @@ function updateHUD(active, mode) {
   const recEl = document.getElementById('hud-rec');
   const statusDot = document.getElementById('status-dot');
   const statusText = document.getElementById('status-text');
+  const scanLine = document.getElementById('scan-line');
 
   if (active && mode === 'detecting') {
     dot.className = 'hud-dot red';
@@ -961,6 +970,7 @@ function updateHUD(active, mode) {
     recEl.style.display = 'flex';
     statusDot.className = 'status-dot live';
     statusText.textContent = 'LIVE';
+    scanLine.style.display = 'block'; // Turn on scan line during active detection
   } else if (active && mode === 'raw') {
     dot.className = 'hud-dot';
     status.textContent = 'RAW STREAM';
@@ -968,6 +978,7 @@ function updateHUD(active, mode) {
     recEl.style.display = 'none';
     statusDot.className = 'status-dot live';
     statusText.textContent = 'LIVE';
+    scanLine.style.display = 'none';
   } else {
     dot.className = 'hud-dot';
     dot.style.background = '#666';
@@ -976,6 +987,7 @@ function updateHUD(active, mode) {
     recEl.style.display = 'none';
     statusDot.className = 'status-dot';
     statusText.textContent = 'OFFLINE';
+    scanLine.style.display = 'none';
   }
 }
 
@@ -1082,7 +1094,15 @@ function addLiveViolation() {
     </div>
     <div class="vcard-alert"><div class="alert-icon"></div></div>
   `;
+  
   container.insertBefore(card, container.firstChild);
+  
+  // UPGRADE: Flash effect for new live violations
+  card.style.boxShadow = "0 0 25px rgba(255,0,80,0.7)";
+  setTimeout(() => {
+    card.style.boxShadow = "";
+  }, 1200);
+
   document.getElementById('vcount').textContent = `${violationCount} Events`;
   document.getElementById('stat-violations').textContent = violationCount;
 
