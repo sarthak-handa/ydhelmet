@@ -1,532 +1,1178 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Helmet Detection System</title>
-    <link rel="icon" href="yd-favicon.png">
-    
-    <!-- Bootstrap 5 CSS -->
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
-    
-    <!-- FontAwesome for Icons -->
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Helmet Detection System — YOGIJI DIGI</title>
+<link rel="icon" href="yd-favicon.png" type="image/png"/>
+<link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@400;500;600;700&family=Orbitron:wght@400;500;700;900&family=Share+Tech+Mono&display=swap" rel="stylesheet"/>
+<style>
+  :root {
+    --blue: #2a5071;
+    --blue-light: #3a7aaa;
+    --blue-glow: rgba(42,80,113,0.6);
+    --red: #ad283f;
+    --red-light: #e03050;
+    --red-glow: rgba(173,40,63,0.6);
+    --bg: #04080f;
+    --surface: rgba(10,18,30,0.75);
+    --surface2: rgba(16,28,46,0.85);
+    --text: #c8d8e8;
+    --text-bright: #eaf3ff;
+    --text-dim: #5a7a9a;
+    --border: rgba(42,80,113,0.35);
+    --border-red: rgba(173,40,63,0.35);
+    --font-display: 'Orbitron', monospace;
+    --font-body: 'Rajdhani', sans-serif;
+    --font-mono: 'Share Tech Mono', monospace;
+  }
 
-    <!-- Supabase JS Client (Ready for actual integration) -->
-    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
-    <style>
-        /* === CORE THEME VARIABLES === */
-        :root {
-            --primary-color: #2a5071;
-            --accent-color: #ad283f;
-            --glass-bg: rgba(15, 30, 50, 0.65);
-            --glass-border: rgba(255, 255, 255, 0.15);
-            --text-light: #f8f9fa;
-        }
+  html, body {
+    height: 100%;
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--font-body);
+    overflow-x: hidden;
+  }
 
-        /* === ANIMATIONS === */
-        @keyframes fadeInSlideUp {
-            from { opacity: 0; transform: translateY(30px); filter: blur(10px); }
-            to { opacity: 1; transform: translateY(0); filter: blur(0); }
-        }
+  /* ── BACKGROUND ── */
+  #bg-layer {
+    position: fixed; inset: 0; z-index: 0;
+    background: url('ydbg.jpg') center/cover no-repeat;
+    filter: blur(3px) brightness(0.28) saturate(1.4);
+    transform: scale(1.06);
+  }
+  #bg-overlay {
+    position: fixed; inset: 0; z-index: 1;
+    background: linear-gradient(160deg,
+      rgba(4,8,15,0.92) 0%,
+      rgba(10,20,36,0.85) 40%,
+      rgba(4,8,15,0.97) 100%);
+  }
 
-        @keyframes pulseGlow {
-            0% { box-shadow: 0 0 5px currentColor; }
-            50% { box-shadow: 0 0 15px currentColor; }
-            100% { box-shadow: 0 0 5px currentColor; }
-        }
+  /* ── PARTICLES ── */
+  #particles-canvas {
+    position: fixed; inset: 0; z-index: 2;
+    pointer-events: none;
+  }
 
-        /* === BACKGROUND & TYPOGRAPHY === */
-        body {
-            background: radial-gradient(circle at 20% 20%, rgba(42,80,113,0.4), transparent 40%),
-                        radial-gradient(circle at 80% 30%, rgba(173,40,63,0.25), transparent 40%),
-                        linear-gradient(135deg, #050c14, #0d1b2a 60%, #02060a);
-            color: var(--text-light);
-            font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
-            min-height: 100vh;
-            display: flex;
-            flex-direction: column;
-            margin: 0;
-        }
+  /* ── SCANLINE OVERLAY ── */
+  .scanlines {
+    position: fixed; inset: 0; z-index: 3; pointer-events: none;
+    background: repeating-linear-gradient(
+      0deg,
+      transparent,
+      transparent 2px,
+      rgba(0,0,0,0.04) 2px,
+      rgba(0,0,0,0.04) 4px
+    );
+    animation: scanMove 8s linear infinite;
+  }
+  @keyframes scanMove {
+    0% { background-position: 0 0; }
+    100% { background-position: 0 100px; }
+  }
 
-        /* Smooth out scrollbar for violations panel */
-        ::-webkit-scrollbar { width: 6px; }
-        ::-webkit-scrollbar-track { background: rgba(0,0,0,0.2); }
-        ::-webkit-scrollbar-thumb { background: var(--primary-color); border-radius: 10px; }
-        ::-webkit-scrollbar-thumb:hover { background: var(--accent-color); }
+  /* ── WRAPPER ── */
+  #app {
+    position: relative; z-index: 10;
+    display: flex; flex-direction: column;
+    min-height: 100vh;
+    opacity: 0;
+    animation: pageReveal 1.2s cubic-bezier(.22,1,.36,1) 0.3s forwards;
+  }
+  @keyframes pageReveal {
+    from { opacity: 0; transform: translateY(18px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
 
-        /* === GLASSMORPHISM UI COMPONENTS === */
-        .glass-panel {
-            background: rgba(10, 20, 35, 0.55);
-            backdrop-filter: blur(18px);
-            border: 1px solid rgba(255,255,255,0.08);
-            border-radius: 14px;
-            box-shadow: 
-                0 10px 40px rgba(0,0,0,0.6),
-                inset 0 0 25px rgba(255,255,255,0.03);
-            padding: 1.5rem;
-            animation: fadeInSlideUp 0.8s ease forwards;
-            transition: all 0.4s ease;
-            margin-bottom: 1.5rem;
-        }
-        .glass-panel:hover {
-            transform: translateY(-6px);
-            box-shadow: 
-                0 20px 60px rgba(0,0,0,0.8),
-                0 0 20px rgba(42,80,113,0.4),
-                0 0 40px rgba(173,40,63,0.2);
-        }
+  /* ── HEADER ── */
+  header {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 14px 32px;
+    background: linear-gradient(180deg, rgba(4,8,15,0.98) 0%, rgba(4,8,15,0.7) 100%);
+    border-bottom: 1px solid var(--border);
+    position: relative;
+    flex-shrink: 0;
+  }
+  header::after {
+    content: '';
+    position: absolute; bottom: -2px; left: 0; right: 0; height: 2px;
+    background: linear-gradient(90deg,
+      transparent 0%,
+      var(--blue) 20%,
+      var(--red-light) 50%,
+      var(--blue) 80%,
+      transparent 100%
+    );
+    animation: headerLine 4s ease-in-out infinite alternate;
+  }
+  @keyframes headerLine {
+    0%  { opacity: 0.5; background-position: 0% center; }
+    100%{ opacity: 1;   background-position: 100% center; }
+  }
 
-        /* === HEADER & FOOTER === */
-        .app-header {
-            background: rgba(10, 25, 45, 0.8);
-            backdrop-filter: blur(20px);
-            border-bottom: 2px solid rgba(173,40,63,0.6);
-            padding: 1rem 2rem;
-            box-shadow: 0 0 20px rgba(173,40,63,0.3);
-            z-index: 1000;
-        }
+  .header-logo img {
+    height: 52px; object-fit: contain;
+    filter: drop-shadow(0 0 8px rgba(173,40,63,0.5));
+    transition: filter 0.3s;
+  }
+  .header-logo img:hover {
+    filter: drop-shadow(0 0 16px rgba(173,40,63,0.9));
+  }
 
-        .header-logo {
-            max-height: 50px;
-            object-fit: contain;
-            transition: filter 0.3s ease, transform 0.3s ease;
-        }
-        .header-logo:hover {
-            filter: drop-shadow(0 0 8px rgba(255, 255, 255, 0.5));
-            transform: scale(1.05);
-        }
-        
-        /* Fallbacks for assets if missing locally */
-        img[src="YDLOGO.png"]:not([complete]) { content: url('https://placehold.co/200x50/2a5071/FFF?text=YD+LOGO'); }
+  .header-title {
+    text-align: center;
+  }
+  .header-title h1 {
+    font-family: var(--font-display);
+    font-size: 1.15rem;
+    font-weight: 700;
+    letter-spacing: 0.22em;
+    color: var(--text-bright);
+    text-shadow: 0 0 18px rgba(42,80,113,0.8), 0 0 40px rgba(42,80,113,0.4);
+    text-transform: uppercase;
+  }
+  .header-title .sub {
+    font-family: var(--font-mono);
+    font-size: 0.65rem;
+    letter-spacing: 0.3em;
+    color: var(--blue-light);
+    text-transform: uppercase;
+    margin-top: 2px;
+    opacity: 0.7;
+  }
 
-        .app-footer {
-            margin-top: auto;
-            text-align: center;
-            padding: 1rem;
-            background: #ffffff;
-            transition: all 0.3s ease;
-            box-shadow: 0 -4px 20px rgba(0, 0, 0, 0.3);
-        }
+  .header-status {
+    display: flex; align-items: center; gap: 10px;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 8px 18px;
+    font-family: var(--font-mono);
+    font-size: 0.72rem;
+    letter-spacing: 0.18em;
+  }
+  .status-dot {
+    width: 9px; height: 9px; border-radius: 50%;
+    background: var(--red-light);
+    box-shadow: 0 0 6px var(--red-light), 0 0 14px var(--red-glow);
+    animation: pulse 1.5s ease-in-out infinite;
+  }
+  .status-dot.live {
+    background: #00e5a0;
+    box-shadow: 0 0 6px #00e5a0, 0 0 14px rgba(0,229,160,0.5);
+  }
+  @keyframes pulse {
+    0%,100%{ transform: scale(1); opacity:1; }
+    50%    { transform: scale(1.35); opacity:0.7; }
+  }
+  #status-text { color: var(--text-bright); }
 
-        .footer-img {
-            max-height: 50px;
-            transition: transform 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275);
-        }
-        .footer-img:hover {
-            transform: scale(1.1);
-        }
+  /* ── MAIN CONTENT ── */
+  main {
+    flex: 1;
+    display: flex;
+    gap: 0;
+    padding: 20px 28px;
+    min-height: 0;
+  }
 
-        /* === CAMERA STREAM SECTION === */
-        .stream-wrapper {
-            position: relative;
-            background: #000;
-            border-radius: 8px;
-            overflow: hidden;
-            min-height: 400px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            border: 2px solid rgba(255,255,255,0.05);
-            box-shadow: inset 0 0 20px rgba(0,0,0,0.8);
-        }
+  /* ── LEFT PANEL ── */
+  .panel-left {
+    flex: 0 0 70%;
+    padding-right: 20px;
+    display: flex; flex-direction: column; gap: 16px;
+  }
 
-        #camera-stream {
-            width: 100%;
-            height: auto;
-            max-height: 70vh;
-            object-fit: contain;
-            transition: opacity 0.3s ease;
-        }
+  /* ── CAMERA SECTION LABEL ── */
+  .section-label {
+    font-family: var(--font-mono);
+    font-size: 0.65rem;
+    letter-spacing: 0.35em;
+    color: var(--blue-light);
+    text-transform: uppercase;
+    display: flex; align-items: center; gap: 10px;
+  }
+  .section-label::after {
+    content: '';
+    flex: 1; height: 1px;
+    background: linear-gradient(90deg, var(--border) 0%, transparent 100%);
+  }
 
-        .stream-overlay {
-            position: absolute;
-            top: 15px;
-            right: 15px;
-            background: rgba(0, 0, 0, 0.7);
-            padding: 6px 12px;
-            border-radius: 20px;
-            font-size: 0.9rem;
-            font-weight: 600;
-            letter-spacing: 0.5px;
-            border: 1px solid rgba(255,255,255,0.2);
-            backdrop-filter: blur(4px);
-            z-index: 10;
-        }
+  /* ── VIDEO WRAPPER ── */
+  .video-wrapper {
+    position: relative;
+    flex: 1;
+    border-radius: 14px;
+    overflow: hidden;
+    border: 1px solid var(--border);
+    background: #000;
+    box-shadow:
+      0 0 0 1px rgba(42,80,113,0.2),
+      0 0 30px rgba(42,80,113,0.15),
+      inset 0 0 60px rgba(0,0,0,0.6);
+    animation: borderGlow 4s ease-in-out infinite alternate;
+    min-height: 340px;
+  }
+  @keyframes borderGlow {
+    0%  { box-shadow: 0 0 0 1px rgba(42,80,113,0.2), 0 0 30px rgba(42,80,113,0.15), inset 0 0 60px rgba(0,0,0,0.6); }
+    100%{ box-shadow: 0 0 0 1px rgba(173,40,63,0.3), 0 0 50px rgba(173,40,63,0.2), inset 0 0 60px rgba(0,0,0,0.6); }
+  }
 
-        .status-dot {
-            display: inline-block;
-            width: 10px;
-            height: 10px;
-            border-radius: 50%;
-            margin-right: 6px;
-            transition: all 0.3s ease;
-        }
-        .status-raw { background-color: #4ade80; color: #4ade80; animation: pulseGlow 2s infinite; }
-        .status-detecting { background-color: #facc15; color: #facc15; animation: pulseGlow 1s infinite alternate; }
+  /* Corner accents */
+  .video-wrapper::before, .video-wrapper::after {
+    content: '';
+    position: absolute; z-index: 5;
+    width: 22px; height: 22px;
+    pointer-events: none;
+  }
+  .video-wrapper::before {
+    top: 0; left: 0;
+    border-top: 2px solid var(--red-light);
+    border-left: 2px solid var(--red-light);
+    border-radius: 14px 0 0 0;
+    box-shadow: -2px -2px 10px var(--red-glow);
+  }
+  .video-wrapper::after {
+    bottom: 0; right: 0;
+    border-bottom: 2px solid var(--blue-light);
+    border-right: 2px solid var(--blue-light);
+    border-radius: 0 0 14px 0;
+    box-shadow: 2px 2px 10px var(--blue-glow);
+  }
 
-        .loader-spinner {
-            position: absolute;
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%);
-            display: none;
-            z-index: 20;
-            color: var(--accent-color);
-        }
+  #stream-img {
+    width: 100%; height: 100%;
+    object-fit: cover;
+    display: block;
+  }
 
-        /* === BUTTONS === */
-        .btn-custom {
-            font-weight: 600;
-            letter-spacing: 0.5px;
-            padding: 0.6rem 1.5rem;
-            border-radius: 6px;
-            transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
-            text-transform: uppercase;
-            font-size: 0.9rem;
-        }
+  /* scanline on video */
+  .video-scan {
+    position: absolute; inset: 0; z-index: 4; pointer-events: none;
+    background: repeating-linear-gradient(
+      0deg,
+      transparent,
+      transparent 3px,
+      rgba(0,0,0,0.06) 3px,
+      rgba(0,0,0,0.06) 6px
+    );
+    mix-blend-mode: multiply;
+  }
 
-        .btn-start {
-            background: linear-gradient(135deg, #2a5071, #3c6e91);
-            border: none;
-            color: white;
-            box-shadow: 0 0 10px rgba(42,80,113,0.5);
-        }
-        .btn-start:hover {
-            transform: translateY(-2px) scale(1.03);
-            box-shadow: 0 0 20px rgba(42,80,113,0.9);
-            color: white;
-        }
+  /* HUD overlays */
+  .video-hud {
+    position: absolute; z-index: 6; pointer-events: none;
+    top: 14px; left: 14px;
+    display: flex; flex-direction: column; gap: 6px;
+  }
+  .hud-badge {
+    display: inline-flex; align-items: center; gap: 7px;
+    background: rgba(4,8,15,0.75);
+    border: 1px solid var(--border);
+    border-radius: 5px;
+    padding: 5px 12px;
+    font-family: var(--font-mono);
+    font-size: 0.65rem;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    color: var(--text-bright);
+    backdrop-filter: blur(8px);
+  }
+  .hud-dot {
+    width: 7px; height: 7px; border-radius: 50%;
+    background: #00e5a0;
+    box-shadow: 0 0 6px #00e5a0;
+    animation: pulse 1.2s ease-in-out infinite;
+  }
+  .hud-dot.red { background: var(--red-light); box-shadow: 0 0 6px var(--red-light); }
 
-        .btn-stop {
-            background: linear-gradient(135deg, #ad283f, #e63946);
-            border: none;
-            color: white;
-            box-shadow: 0 0 10px rgba(173,40,63,0.5);
-        }
-        .btn-stop:hover {
-            transform: translateY(-2px) scale(1.03);
-            box-shadow: 0 0 20px rgba(173,40,63,0.9);
-            color: white;
-        }
+  .hud-mode {
+    font-family: var(--font-mono); font-size: 0.62rem;
+    letter-spacing: 0.25em; color: var(--blue-light);
+    padding: 4px 10px;
+    background: rgba(42,80,113,0.2);
+    border: 1px solid rgba(42,80,113,0.3);
+    border-radius: 4px;
+  }
 
-        /* === VIOLATIONS PANEL === */
-        .violations-container {
-            max-height: 600px;
-            overflow-y: auto;
-            padding-right: 5px;
-        }
+  /* REC badge top-right */
+  .hud-rec {
+    position: absolute; z-index: 6; top: 14px; right: 14px;
+    display: flex; align-items: center; gap: 6px;
+    font-family: var(--font-mono); font-size: 0.62rem;
+    letter-spacing: 0.2em; color: var(--red-light);
+    background: rgba(173,40,63,0.12);
+    border: 1px solid rgba(173,40,63,0.3);
+    border-radius: 5px;
+    padding: 5px 11px;
+    pointer-events: none;
+  }
+  .rec-blink {
+    width: 7px; height: 7px; border-radius: 50%;
+    background: var(--red-light);
+    animation: recBlink 1s step-end infinite;
+  }
+  @keyframes recBlink { 0%,100%{opacity:1;} 50%{opacity:0;} }
 
-        .violation-card {
-            background: rgba(10, 20, 35, 0.6);
-            border-left: 3px solid #ff4d6d;
-            border-radius: 8px;
-            padding: 12px;
-            margin-bottom: 12px;
-            display: flex;
-            gap: 15px;
-            align-items: center;
-            transition: all 0.3s ease;
-        }
+  /* bottom-right crosshair */
+  .hud-crosshair {
+    position: absolute; z-index: 6; bottom: 14px; right: 18px;
+    pointer-events: none; opacity: 0.35;
+  }
 
-        .violation-card:hover {
-            transform: translateX(6px) scale(1.02);
-            box-shadow: 0 0 15px rgba(255,77,109,0.5);
-        }
+  /* ── CONTROLS ── */
+  .controls {
+    display: flex; gap: 14px; align-items: center;
+  }
 
-        .violation-img {
-            width: 90px;
-            height: 90px;
-            object-fit: cover;
-            border-radius: 4px;
-            border: 1px solid rgba(255,255,255,0.1);
-            transition: transform 0.4s ease;
-        }
-        .violation-card:hover .violation-img {
-            transform: scale(1.08) rotate(-2deg);
-        }
+  .btn {
+    position: relative; overflow: hidden;
+    display: inline-flex; align-items: center; gap: 10px;
+    padding: 12px 30px;
+    font-family: var(--font-display);
+    font-size: 0.72rem;
+    font-weight: 700;
+    letter-spacing: 0.22em;
+    text-transform: uppercase;
+    border: none; cursor: pointer;
+    border-radius: 7px;
+    transition: transform 0.15s, box-shadow 0.2s, filter 0.2s;
+    outline: none;
+  }
+  .btn::before {
+    content: '';
+    position: absolute; inset: 0;
+    background: linear-gradient(135deg, rgba(255,255,255,0.1) 0%, transparent 100%);
+    opacity: 0;
+    transition: opacity 0.2s;
+  }
+  .btn:hover::before { opacity: 1; }
+  .btn:active { transform: scale(0.96); }
 
-        .violation-details h6 {
-            color: #ff6b6b;
-            font-weight: bold;
-            margin-bottom: 4px;
-        }
-        
-        .violation-details p {
-            margin: 0;
-            font-size: 0.85rem;
-            color: #ccc;
-        }
+  .btn-start {
+    background: linear-gradient(135deg, #1a6a3a 0%, #0f4a28 100%);
+    color: #7dffc0;
+    border: 1px solid rgba(0,229,160,0.35);
+    box-shadow: 0 0 18px rgba(0,229,160,0.15), inset 0 1px 0 rgba(255,255,255,0.08);
+  }
+  .btn-start:hover {
+    box-shadow: 0 0 32px rgba(0,229,160,0.35), 0 0 8px rgba(0,229,160,0.5), inset 0 1px 0 rgba(255,255,255,0.1);
+    transform: translateY(-2px);
+    filter: brightness(1.15);
+  }
 
-        .section-title {
-            font-size: 1.25rem;
-            font-weight: 600;
-            margin-bottom: 1rem;
-            border-bottom: 1px solid rgba(255,255,255,0.1);
-            padding-bottom: 0.5rem;
-            text-transform: uppercase;
-            letter-spacing: 1px;
-        }
-    </style>
+  .btn-stop {
+    background: linear-gradient(135deg, #6a1a1a 0%, #4a0f0f 100%);
+    color: #ffaabb;
+    border: 1px solid rgba(173,40,63,0.45);
+    box-shadow: 0 0 18px rgba(173,40,63,0.15), inset 0 1px 0 rgba(255,255,255,0.06);
+  }
+  .btn-stop:hover {
+    box-shadow: 0 0 32px rgba(173,40,63,0.4), 0 0 8px rgba(173,40,63,0.5), inset 0 1px 0 rgba(255,255,255,0.08);
+    transform: translateY(-2px);
+    filter: brightness(1.15);
+  }
+
+  .btn-icon {
+    width: 16px; height: 16px;
+    border-radius: 50%;
+    background: currentColor;
+    opacity: 0.9;
+  }
+  .btn-stop .btn-icon { border-radius: 2px; }
+
+  /* ripple */
+  .ripple {
+    position: absolute;
+    border-radius: 50%;
+    transform: scale(0);
+    animation: rippleAnim 0.5s linear;
+    background: rgba(255,255,255,0.18);
+    pointer-events: none;
+  }
+  @keyframes rippleAnim {
+    to { transform: scale(3); opacity: 0; }
+  }
+
+  .controls-info {
+    margin-left: auto;
+    font-family: var(--font-mono);
+    font-size: 0.6rem;
+    color: var(--text-dim);
+    letter-spacing: 0.15em;
+    text-align: right;
+    line-height: 1.8;
+  }
+
+  /* ── RIGHT PANEL ── */
+  .panel-right {
+    flex: 0 0 30%;
+    display: flex; flex-direction: column; gap: 14px;
+  }
+
+  .violations-box {
+    flex: 1;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    display: flex; flex-direction: column;
+    overflow: hidden;
+    backdrop-filter: blur(20px);
+    box-shadow: 0 8px 40px rgba(0,0,0,0.4), inset 0 1px 0 rgba(255,255,255,0.04);
+  }
+
+  .violations-header {
+    padding: 14px 18px;
+    border-bottom: 1px solid var(--border);
+    display: flex; align-items: center; justify-content: space-between;
+    background: linear-gradient(180deg, rgba(173,40,63,0.08) 0%, transparent 100%);
+  }
+  .violations-header .title {
+    font-family: var(--font-display);
+    font-size: 0.65rem;
+    letter-spacing: 0.25em;
+    color: var(--red-light);
+    text-shadow: 0 0 10px var(--red-glow);
+    text-transform: uppercase;
+  }
+  .violations-count {
+    font-family: var(--font-mono);
+    font-size: 0.62rem;
+    color: var(--text-dim);
+    background: rgba(173,40,63,0.15);
+    border: 1px solid rgba(173,40,63,0.25);
+    border-radius: 20px;
+    padding: 2px 10px;
+    letter-spacing: 0.1em;
+  }
+
+  .violations-list {
+    flex: 1;
+    overflow-y: auto;
+    padding: 12px;
+    display: flex; flex-direction: column; gap: 10px;
+    scrollbar-width: thin;
+    scrollbar-color: var(--blue) transparent;
+  }
+  .violations-list::-webkit-scrollbar { width: 4px; }
+  .violations-list::-webkit-scrollbar-track { background: transparent; }
+  .violations-list::-webkit-scrollbar-thumb {
+    background: var(--blue);
+    border-radius: 2px;
+  }
+
+  /* ── VIOLATION CARD ── */
+  .vcard {
+    background: var(--surface2);
+    border: 1px solid var(--border-red);
+    border-radius: 9px;
+    display: flex; gap: 12px; align-items: center;
+    padding: 10px 12px;
+    cursor: default;
+    transition: transform 0.2s cubic-bezier(.22,1,.36,1),
+                box-shadow 0.2s,
+                border-color 0.2s;
+    position: relative; overflow: hidden;
+    animation: cardIn 0.5s cubic-bezier(.22,1,.36,1) both;
+  }
+  @keyframes cardIn {
+    from { opacity: 0; transform: translateX(30px); }
+    to   { opacity: 1; transform: translateX(0); }
+  }
+  .vcard:hover {
+    transform: scale(1.025) translateX(-3px) rotateY(-1deg);
+    box-shadow: 0 0 22px rgba(173,40,63,0.3), 0 4px 20px rgba(0,0,0,0.4);
+    border-color: rgba(173,40,63,0.6);
+  }
+  .vcard::before {
+    content: '';
+    position: absolute; left: 0; top: 0; bottom: 0; width: 3px;
+    background: linear-gradient(180deg, var(--red-light) 0%, var(--red) 100%);
+    box-shadow: 0 0 8px var(--red-glow);
+    opacity: 0;
+    transition: opacity 0.2s;
+  }
+  .vcard:hover::before { opacity: 1; }
+
+  .vcard-thumb {
+    width: 52px; height: 52px;
+    border-radius: 6px;
+    object-fit: cover;
+    border: 1px solid rgba(173,40,63,0.3);
+    flex-shrink: 0;
+    background: #111;
+  }
+
+  .vcard-body { flex: 1; min-width: 0; }
+  .vcard-label {
+    font-family: var(--font-display);
+    font-size: 0.65rem;
+    font-weight: 700;
+    letter-spacing: 0.15em;
+    color: var(--red-light);
+    text-transform: uppercase;
+  }
+  .vcard-cam {
+    font-family: var(--font-mono);
+    font-size: 0.6rem;
+    color: var(--text-dim);
+    letter-spacing: 0.12em;
+    margin-top: 2px;
+  }
+  .vcard-time {
+    font-family: var(--font-mono);
+    font-size: 0.58rem;
+    color: var(--blue-light);
+    letter-spacing: 0.1em;
+    margin-top: 4px;
+  }
+
+  .vcard-alert {
+    width: 24px; height: 24px; flex-shrink: 0;
+    display: flex; align-items: center; justify-content: center;
+  }
+  .alert-icon {
+    width: 18px; height: 18px;
+    background: rgba(173,40,63,0.2);
+    border: 1px solid rgba(173,40,63,0.4);
+    border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    animation: alertPulse 2s ease-in-out infinite;
+  }
+  @keyframes alertPulse {
+    0%,100%{ box-shadow: 0 0 0 0 rgba(173,40,63,0.4); }
+    50%    { box-shadow: 0 0 0 5px rgba(173,40,63,0); }
+  }
+  .alert-icon::after {
+    content: '!';
+    font-family: var(--font-display);
+    font-size: 0.55rem;
+    color: var(--red-light);
+    font-weight: 900;
+  }
+
+  /* stagger cards */
+  .vcard:nth-child(1) { animation-delay: 0.1s; }
+  .vcard:nth-child(2) { animation-delay: 0.2s; }
+  .vcard:nth-child(3) { animation-delay: 0.3s; }
+  .vcard:nth-child(4) { animation-delay: 0.4s; }
+  .vcard:nth-child(5) { animation-delay: 0.5s; }
+  .vcard:nth-child(6) { animation-delay: 0.6s; }
+
+  /* ── STATS BAR ── */
+  .stats-bar {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 14px 18px;
+    display: flex; gap: 0;
+    backdrop-filter: blur(20px);
+  }
+  .stat-item {
+    flex: 1;
+    text-align: center;
+    border-right: 1px solid var(--border);
+  }
+  .stat-item:last-child { border-right: none; }
+  .stat-val {
+    font-family: var(--font-display);
+    font-size: 1.4rem;
+    font-weight: 900;
+    line-height: 1;
+    color: var(--text-bright);
+  }
+  .stat-val.red { color: var(--red-light); text-shadow: 0 0 12px var(--red-glow); }
+  .stat-val.green { color: #00e5a0; text-shadow: 0 0 12px rgba(0,229,160,0.4); }
+  .stat-val.blue { color: var(--blue-light); text-shadow: 0 0 12px var(--blue-glow); }
+  .stat-lbl {
+    font-family: var(--font-mono);
+    font-size: 0.55rem;
+    letter-spacing: 0.2em;
+    color: var(--text-dim);
+    text-transform: uppercase;
+    margin-top: 4px;
+  }
+
+  /* ── FOOTER ── */
+  footer {
+    background: #ffffff;
+    display: flex; align-items: center; justify-content: center;
+    gap: 24px;
+    padding: 14px 32px;
+    border-top: 3px solid var(--red);
+    flex-shrink: 0;
+  }
+  footer img {
+    height: 38px; object-fit: contain;
+  }
+  footer .footer-text {
+    font-family: var(--font-display);
+    font-size: 0.6rem;
+    letter-spacing: 0.25em;
+    color: #333;
+    text-transform: uppercase;
+  }
+
+  /* ── TOAST ── */
+  #toast {
+    position: fixed; bottom: 80px; left: 50%; transform: translateX(-50%) translateY(20px);
+    z-index: 999;
+    background: rgba(10,18,30,0.95);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 12px 24px;
+    font-family: var(--font-mono);
+    font-size: 0.7rem;
+    letter-spacing: 0.15em;
+    color: var(--text-bright);
+    backdrop-filter: blur(20px);
+    box-shadow: 0 8px 32px rgba(0,0,0,0.5);
+    opacity: 0;
+    transition: opacity 0.3s, transform 0.3s;
+    pointer-events: none;
+    white-space: nowrap;
+  }
+  #toast.show {
+    opacity: 1; transform: translateX(-50%) translateY(0);
+  }
+
+  /* ── TICKER ── */
+  .ticker-wrap {
+    background: rgba(4,8,15,0.9);
+    border-top: 1px solid var(--border);
+    border-bottom: 1px solid var(--border);
+    padding: 5px 0;
+    overflow: hidden;
+    flex-shrink: 0;
+  }
+  .ticker {
+    display: flex; gap: 60px;
+    width: max-content;
+    animation: ticker 30s linear infinite;
+  }
+  @keyframes ticker {
+    from { transform: translateX(0); }
+    to   { transform: translateX(-50%); }
+  }
+  .ticker-item {
+    font-family: var(--font-mono);
+    font-size: 0.58rem;
+    letter-spacing: 0.2em;
+    color: var(--text-dim);
+    text-transform: uppercase;
+    white-space: nowrap;
+    display: flex; align-items: center; gap: 8px;
+  }
+  .ticker-item::before {
+    content: '▸';
+    color: var(--red);
+    font-size: 0.5rem;
+  }
+
+  /* ── CLOCK ── */
+  #live-clock {
+    font-family: var(--font-mono);
+    font-size: 0.62rem;
+    color: var(--text-dim);
+    letter-spacing: 0.1em;
+  }
+
+  /* No stream placeholder */
+  .no-stream {
+    position: absolute; inset: 0;
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    gap: 14px;
+    background: radial-gradient(ellipse at center, rgba(42,80,113,0.08) 0%, transparent 70%);
+    color: var(--text-dim);
+    font-family: var(--font-mono);
+    font-size: 0.7rem;
+    letter-spacing: 0.2em;
+  }
+  .no-stream-icon {
+    width: 60px; height: 60px; opacity: 0.3;
+    stroke: var(--blue-light);
+  }
+
+  /* Grid lines on right panel header area */
+  .grid-decoration {
+    position: absolute; inset: 0; pointer-events: none; opacity: 0.04;
+    background-image:
+      linear-gradient(var(--blue) 1px, transparent 1px),
+      linear-gradient(90deg, var(--blue) 1px, transparent 1px);
+    background-size: 30px 30px;
+    border-radius: 12px;
+  }
+</style>
 </head>
 <body>
 
-    <!-- HEADER -->
-    <header class="app-header d-flex justify-content-between align-items-center">
-        <div>
-            <img src="YDLOGO.png" alt="Company Logo" class="header-logo" onerror="this.src='https://placehold.co/200x50/2a5071/FFF?text=YD+LOGO'">
+<div id="bg-layer"></div>
+<div id="bg-overlay"></div>
+<canvas id="particles-canvas"></canvas>
+<div class="scanlines"></div>
+
+<div id="app">
+
+  <!-- HEADER -->
+  <header>
+    <div class="header-logo">
+      <img src="YDLOGO.png" alt="YogiJi Digi Logo"/>
+    </div>
+    <div class="header-title">
+      <h1>Helmet Detection System</h1>
+      <div class="sub">AI-Powered Safety Monitoring · Real-Time</div>
+    </div>
+    <div class="header-status">
+      <div class="status-dot" id="status-dot"></div>
+      <span id="status-text">OFFLINE</span>
+      &nbsp;·&nbsp;
+      <span id="live-clock"></span>
+    </div>
+  </header>
+
+  <!-- TICKER -->
+  <div class="ticker-wrap">
+    <div class="ticker">
+      <span class="ticker-item">Helmet Detection Active</span>
+      <span class="ticker-item">AI Engine v2.4 Running</span>
+      <span class="ticker-item">YOGIJI DIGI Safety Suite</span>
+      <span class="ticker-item">Great Place To Work Certified 2025–2026</span>
+      <span class="ticker-item">Camera Feed: RTSP Protocol</span>
+      <span class="ticker-item">YOLO Detection Engine</span>
+      <span class="ticker-item">Zero Compromise On Safety</span>
+      <!-- duplicate for seamless loop -->
+      <span class="ticker-item">Helmet Detection Active</span>
+      <span class="ticker-item">AI Engine v2.4 Running</span>
+      <span class="ticker-item">YOGIJI DIGI Safety Suite</span>
+      <span class="ticker-item">Great Place To Work Certified 2025–2026</span>
+      <span class="ticker-item">Camera Feed: RTSP Protocol</span>
+      <span class="ticker-item">YOLO Detection Engine</span>
+      <span class="ticker-item">Zero Compromise On Safety</span>
+    </div>
+  </div>
+
+  <!-- MAIN -->
+  <main>
+
+    <!-- LEFT: Camera -->
+    <div class="panel-left">
+      <div class="section-label">Live Camera Feed</div>
+
+      <div class="video-wrapper" id="video-wrapper">
+        <!-- Placeholder shown before stream -->
+        <div class="no-stream" id="no-stream-msg">
+          <svg class="no-stream-icon" viewBox="0 0 24 24" fill="none" stroke-width="1.5">
+            <path d="M15 10l4.553-2.277A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M3 8a2 2 0 012-2h10a2 2 0 012 2v8a2 2 0 01-2 2H5a2 2 0 01-2-2V8z"/>
+          </svg>
+          <span>STREAM NOT ACTIVE — START DETECTION TO BEGIN</span>
         </div>
-        <h3 class="m-0 text-white fw-bold d-none d-md-block" style="text-shadow: 0 2px 4px rgba(0,0,0,0.5);">
-            <i class="fas fa-hard-hat me-2" style="color: var(--accent-color);"></i>
-            Helmet Detection System
-        </h3>
-        <div class="d-flex align-items-center">
-             <span class="badge bg-success px-3 py-2 rounded-pill"><i class="fas fa-network-wired me-1"></i> System Online</span>
+
+        <img id="stream-img" src="" alt="Live Stream" style="display:none;"
+             onload="this.style.display='block'; document.getElementById('no-stream-msg').style.display='none';"
+             onerror="this.style.display='none'; document.getElementById('no-stream-msg').style.display='flex';" />
+
+        <!-- HUD overlays -->
+        <div class="video-hud">
+          <div class="hud-badge">
+            <div class="hud-dot" id="hud-dot"></div>
+            <span id="hud-status">STREAM INACTIVE</span>
+          </div>
+          <div class="hud-mode" id="hud-mode">MODE: —</div>
         </div>
-    </header>
 
-    <!-- MAIN DASHBOARD CONTENT -->
-    <div class="container-fluid flex-grow-1 py-4 px-4">
-        <div class="row g-4">
-            
-            <!-- LEFT COLUMN: CAMERA FEED -->
-            <div class="col-lg-8">
-                <div class="glass-panel h-100 d-flex flex-column">
-                    <div class="d-flex justify-content-between align-items-center mb-3">
-                        <h4 class="section-title m-0 border-0"><i class="fas fa-video me-2"></i>Live Camera Feed</h4>
-                        
-                        <!-- CONTROLS -->
-                        <div class="btn-group gap-2" role="group">
-                            <button id="btn-start" class="btn btn-custom btn-start" onclick="startDetection()">
-                                <i class="fas fa-play me-2"></i> Start Detection
-                            </button>
-                            <button id="btn-stop" class="btn btn-custom btn-stop" onclick="stopDetection()">
-                                <i class="fas fa-stop me-2"></i> Stop Detection
-                            </button>
-                        </div>
-                    </div>
-
-                    <!-- VIDEO STREAM WRAPPER -->
-                    <div class="stream-wrapper flex-grow-1">
-                        <div class="stream-overlay">
-                            <span id="status-indicator" class="status-dot status-raw"></span>
-                            <span id="status-text">Raw Stream</span>
-                        </div>
-                        
-                        <div id="loader" class="loader-spinner">
-                            <div class="spinner-border" style="width: 3rem; height: 3rem;" role="status">
-                                <span class="visually-hidden">Loading...</span>
-                            </div>
-                        </div>
-
-                        <!-- 
-                            DEFAULT STATE: raw stream 
-                            Error fallback included so the UI doesn't look broken if backend is offline 
-                        -->
-                        <img id="camera-stream" src="http://127.0.0.1:5000/raw" alt="Camera Feed Offline" 
-                             onerror="this.onerror=null; this.src='https://placehold.co/800x450/111/444?text=CAMERA+OFFLINE\nEnsure+AI+Server+is+running+on+port+5000'">
-                    </div>
-                </div>
-            </div>
-
-            <!-- RIGHT COLUMN: VIOLATIONS -->
-            <div class="col-lg-4">
-                <div class="glass-panel h-100">
-                    <h4 class="section-title"><i class="fas fa-exclamation-triangle me-2" style="color: var(--accent-color);"></i>Recent Violations</h4>
-                    
-                    <div class="violations-container" id="violations-list">
-                        <!-- Violations will be injected here via JS -->
-                        <div class="text-center text-muted py-5" id="empty-state">
-                            <i class="fas fa-shield-alt fa-3x mb-3 opacity-50"></i>
-                            <p>No violations detected recently.</p>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
+        <div class="hud-rec" id="hud-rec" style="display:none;">
+          <div class="rec-blink"></div>
+          DETECTING
         </div>
+
+        <!-- SVG Crosshair -->
+        <svg class="hud-crosshair" width="50" height="50" viewBox="0 0 50 50" fill="none">
+          <circle cx="25" cy="25" r="12" stroke="rgba(42,80,113,0.6)" stroke-width="1"/>
+          <line x1="25" y1="8" x2="25" y2="17" stroke="rgba(42,80,113,0.6)" stroke-width="1"/>
+          <line x1="25" y1="33" x2="25" y2="42" stroke="rgba(42,80,113,0.6)" stroke-width="1"/>
+          <line x1="8" y1="25" x2="17" y2="25" stroke="rgba(42,80,113,0.6)" stroke-width="1"/>
+          <line x1="33" y1="25" x2="42" y2="25" stroke="rgba(42,80,113,0.6)" stroke-width="1"/>
+        </svg>
+
+        <div class="video-scan"></div>
+      </div>
+
+      <!-- CONTROLS -->
+      <div class="controls">
+        <button class="btn btn-start" id="btn-start" onclick="startDetection(this)">
+          <div class="btn-icon"></div>
+          Start Detection
+        </button>
+        <button class="btn btn-stop" id="btn-stop" onclick="stopDetection(this)">
+          <div class="btn-icon"></div>
+          Stop Detection
+        </button>
+        <div class="controls-info">
+          <div>BACKEND · 127.0.0.1:5000</div>
+          <div id="ctrl-info">Status: Idle</div>
+        </div>
+      </div>
+
+      <!-- STATS -->
+      <div class="stats-bar">
+        <div class="stat-item">
+          <div class="stat-val red" id="stat-violations">5</div>
+          <div class="stat-lbl">Violations</div>
+        </div>
+        <div class="stat-item">
+          <div class="stat-val green" id="stat-compliant">12</div>
+          <div class="stat-lbl">Compliant</div>
+        </div>
+        <div class="stat-item">
+          <div class="stat-val blue" id="stat-cameras">3</div>
+          <div class="stat-lbl">Cameras</div>
+        </div>
+        <div class="stat-item">
+          <div class="stat-val" id="stat-uptime">00:00</div>
+          <div class="stat-lbl">Uptime</div>
+        </div>
+      </div>
     </div>
 
-    <!-- FOOTER -->
-    <footer class="app-footer bg-white">
-        <img src="YDLOGO.png" alt="Footer Banner" class="footer-img" onerror="this.src='https://placehold.co/200x50/1a1a1a/FFF?text=YD+LOGO'">
-    </footer>
+    <!-- RIGHT: Violations -->
+    <div class="panel-right">
+      <div class="section-label">Violation Log</div>
 
-    <!-- Bootstrap 5 JS -->
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.css"></script>
+      <div class="violations-box" style="position:relative;">
+        <div class="grid-decoration"></div>
 
-    <!-- DASHBOARD LOGIC -->
-    <script>
-        // ==========================================
-        // CONFIGURATION
-        // ==========================================
-        // Change this IP to the local IP of the machine running the Python AI server.
-        // Example: '192.168.1.100'
-        const AI_SERVER_IP = '127.0.0.1'; 
-        const AI_SERVER_PORT = '5000';
-        const API_BASE_URL = `http://${AI_SERVER_IP}:${AI_SERVER_PORT}`;
+        <div class="violations-header">
+          <div class="title">⚠ No-Helmet Alerts</div>
+          <div class="violations-count" id="vcount">5 Events</div>
+        </div>
 
-        // ==========================================
-        // DOM ELEMENTS
-        // ==========================================
-        const streamImg = document.getElementById('camera-stream');
-        const loader = document.getElementById('loader');
-        const statusText = document.getElementById('status-text');
-        const statusIndicator = document.getElementById('status-indicator');
-        const violationsList = document.getElementById('violations-list');
-        const emptyState = document.getElementById('empty-state');
+        <div class="violations-list" id="violations-list">
+          <!-- Populated by JS -->
+        </div>
+      </div>
+    </div>
 
-        // ==========================================
-        // CAMERA STREAM LOGIC
-        // ==========================================
-        
-        function setStreamLoading(isLoading) {
-            if (isLoading) {
-                loader.style.display = 'block';
-                streamImg.style.opacity = '0.3';
-            } else {
-                loader.style.display = 'none';
-                streamImg.style.opacity = '1';
-            }
-        }
+  </main>
 
-        async function startDetection() {
-            setStreamLoading(true);
-            try {
-                // 1. Send the command to start the AI loop
-                await fetch(`${API_BASE_URL}/start`, { mode: 'no-cors' });
-                
-                // 2. Switch the image source to the processed stream
-                // The timestamp cache-buster forces the browser to load the new stream
-                const timestamp = new Date().getTime();
-                streamImg.src = `${API_BASE_URL}/?t=${timestamp}`;
-                
-                // 3. Update UI indicators
-                statusText.innerText = "Detection Active";
-                statusIndicator.className = "status-dot status-detecting";
-                
-            } catch (error) {
-                console.error("Error starting detection:", error);
-                alert(`Failed to communicate with AI server at ${API_BASE_URL}.\nEnsure backend is running and on the same LAN.`);
-            }
-            
-            // Remove loader after a brief moment to allow stream to buffer
-            setTimeout(() => setStreamLoading(false), 1200);
-        }
+  <!-- FOOTER -->
+  <footer>
+    <img src="yd-footer.png" alt="YogiJi Digi"/>
+    <div class="footer-text">Helmet Detection System · AI Safety Suite · YOGIJI DIGI © 2025</div>
+  </footer>
 
-        async function stopDetection() {
-            setStreamLoading(true);
-            try {
-                // 1. Send the command to stop the AI loop
-                await fetch(`${API_BASE_URL}/stop`, { mode: 'no-cors' });
-                
-                // 2. Switch the image source back to the raw stream
-                const timestamp = new Date().getTime();
-                streamImg.src = `${API_BASE_URL}/raw?t=${timestamp}`;
-                
-                // 3. Update UI indicators
-                statusText.innerText = "Raw Stream";
-                statusIndicator.className = "status-dot status-raw";
-                
-            } catch (error) {
-                console.error("Error stopping detection:", error);
-            }
-            
-            setTimeout(() => setStreamLoading(false), 1200);
-        }
+</div>
 
-        // ==========================================
-        // SUPABASE VIOLATIONS LOGIC
-        // ==========================================
-        
-        /* * INSTRUCTIONS FOR SUPABASE INTEGRATION:
-         * 1. Uncomment the initialization code below.
-         * 2. Replace the URL and ANON_KEY with your actual Supabase credentials.
-         * 3. Ensure your bucket is public, or that you generate signed URLs.
-         */
-        
-        // const SUPABASE_URL = 'https://your-project-ref.supabase.co';
-        // const SUPABASE_ANON_KEY = 'your-anon-key';
-        // const supabase = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+<!-- TOAST -->
+<div id="toast"></div>
 
-        async function fetchRecentViolations() {
-            // --- MOCK DATA FOR DEMONSTRATION PURPOSES ---
-            // Remove this mock data array when connecting your actual Supabase bucket
-            const mockData = [
-                { id: 1, time: new Date().toLocaleTimeString(), imgUrl: 'https://images.unsplash.com/photo-1504328345606-18bbc8c9d7d1?auto=format&fit=crop&w=200&q=80' },
-                { id: 2, time: new Date(Date.now() - 300000).toLocaleTimeString(), imgUrl: 'https://images.unsplash.com/photo-1541888086425-d81bb19240f5?auto=format&fit=crop&w=200&q=80' },
-                { id: 3, time: new Date(Date.now() - 900000).toLocaleTimeString(), imgUrl: 'https://images.unsplash.com/photo-1581091226825-a6a2a5aee158?auto=format&fit=crop&w=200&q=80' }
-            ];
+<script>
+// ─── MOCK VIOLATIONS DATA ────────────────────────────────────────────────────
+const VIOLATIONS = [
+  {
+    imgUrl: 'https://placehold.co/52x52/1a0a0a/ff4466?text=⚠',
+    time: '09:14:32',
+    label: 'No Helmet',
+    cam: 'CAM-01 · Gate A'
+  },
+  {
+    imgUrl: 'https://placehold.co/52x52/1a0a0a/ff4466?text=⚠',
+    time: '09:17:08',
+    label: 'No Helmet',
+    cam: 'CAM-03 · Shop Floor'
+  },
+  {
+    imgUrl: 'https://placehold.co/52x52/1a0a0a/ff4466?text=⚠',
+    time: '09:22:55',
+    label: 'No Helmet',
+    cam: 'CAM-02 · Assembly'
+  },
+  {
+    imgUrl: 'https://placehold.co/52x52/1a0a0a/ff4466?text=⚠',
+    time: '09:31:14',
+    label: 'No Helmet',
+    cam: 'CAM-01 · Gate A'
+  },
+  {
+    imgUrl: 'https://placehold.co/52x52/1a0a0a/ff4466?text=⚠',
+    time: '09:44:02',
+    label: 'No Helmet',
+    cam: 'CAM-04 · Loading Bay'
+  },
+];
 
-            try {
-                /*
-                // --- ACTUAL SUPABASE FETCH LOGIC ---
-                // Example assuming you have a database table 'violations' that stores the image filename/path
-                
-                const { data, error } = await supabase
-                    .from('violations')
-                    .select('*')
-                    .order('created_at', { ascending: false })
-                    .limit(10);
-                    
-                if (error) throw error;
-                
-                const violations = data.map(record => {
-                    // Get public URL for the image in the storage bucket
-                    const { data: imgData } = supabase.storage
-                        .from('violation-images')
-                        .getPublicUrl(record.image_path);
-                        
-                    return {
-                        id: record.id,
-                        time: new Date(record.created_at).toLocaleTimeString(),
-                        imgUrl: imgData.publicUrl
-                    };
-                });
-                */
-                
-                const violations = mockData; // Replace with 'violations' variable from above
+// ─── RENDER VIOLATIONS ───────────────────────────────────────────────────────
+function renderViolations(list) {
+  const container = document.getElementById('violations-list');
+  container.innerHTML = '';
+  list.forEach((v, i) => {
+    const card = document.createElement('div');
+    card.className = 'vcard';
+    card.style.animationDelay = `${0.08 * i + 0.1}s`;
+    card.innerHTML = `
+      <img class="vcard-thumb" src="${v.imgUrl}" alt="violation"/>
+      <div class="vcard-body">
+        <div class="vcard-label">${v.label}</div>
+        <div class="vcard-cam">${v.cam}</div>
+        <div class="vcard-time">⏱ ${v.time}</div>
+      </div>
+      <div class="vcard-alert"><div class="alert-icon"></div></div>
+    `;
+    container.appendChild(card);
+  });
+  document.getElementById('vcount').textContent = `${list.length} Events`;
+}
+renderViolations(VIOLATIONS);
 
-                renderViolations(violations);
+// ─── STREAM STATE ────────────────────────────────────────────────────────────
+let detecting = false;
+let uptimeInterval = null;
+let uptimeSeconds = 0;
 
-            } catch (error) {
-                console.error("Error fetching violations:", error);
-            }
-        }
+function setStream(url) {
+  const img = document.getElementById('stream-img');
+  const noMsg = document.getElementById('no-stream-msg');
+  if (url) {
+    img.src = url + '?t=' + Date.now();
+    img.style.display = 'block';
+    noMsg.style.display = 'none';
+  } else {
+    img.src = '';
+    img.style.display = 'none';
+    noMsg.style.display = 'flex';
+  }
+}
 
-        function renderViolations(violations) {
-            if (!violations || violations.length === 0) return;
-            
-            // Hide empty state message
-            if(emptyState) emptyState.style.display = 'none';
+function updateHUD(active, mode) {
+  const dot = document.getElementById('hud-dot');
+  const status = document.getElementById('hud-status');
+  const modeEl = document.getElementById('hud-mode');
+  const recEl = document.getElementById('hud-rec');
+  const statusDot = document.getElementById('status-dot');
+  const statusText = document.getElementById('status-text');
 
-            // Clear existing list (optional, depending on if you are appending or replacing)
-            violationsList.innerHTML = '';
+  if (active && mode === 'detecting') {
+    dot.className = 'hud-dot red';
+    status.textContent = 'AI DETECTING';
+    modeEl.textContent = 'MODE: DETECTION';
+    recEl.style.display = 'flex';
+    statusDot.className = 'status-dot live';
+    statusText.textContent = 'LIVE';
+  } else if (active && mode === 'raw') {
+    dot.className = 'hud-dot';
+    status.textContent = 'RAW STREAM';
+    modeEl.textContent = 'MODE: RAW';
+    recEl.style.display = 'none';
+    statusDot.className = 'status-dot live';
+    statusText.textContent = 'LIVE';
+  } else {
+    dot.className = 'hud-dot';
+    dot.style.background = '#666';
+    status.textContent = 'STREAM INACTIVE';
+    modeEl.textContent = 'MODE: —';
+    recEl.style.display = 'none';
+    statusDot.className = 'status-dot';
+    statusText.textContent = 'OFFLINE';
+  }
+}
 
-            violations.forEach(v => {
-                const card = document.createElement('div');
-                card.className = 'violation-card';
-                card.innerHTML = `
-                    <img src="${v.imgUrl}" alt="Violation Snapshot" class="violation-img">
-                    <div class="violation-details">
-                        <h6><i class="fas fa-ban me-1"></i> No Helmet</h6>
-                        <p><i class="far fa-clock me-1"></i> ${v.time}</p>
-                        <p class="text-white-50 mt-1" style="font-size: 0.75rem;">Camera: Main Entrance</p>
-                    </div>
-                `;
-                violationsList.appendChild(card);
-            });
-        }
+// ─── START DETECTION ─────────────────────────────────────────────────────────
+async function startDetection(btn) {
+  addRipple(btn, event);
+  document.getElementById('ctrl-info').textContent = 'Connecting...';
+  try {
+    await fetch('http://127.0.0.1:5000/start');
+  } catch(e) {
+    // backend might not be running in preview
+  }
+  detecting = true;
+  setStream('http://127.0.0.1:5000/');
+  updateHUD(true, 'detecting');
+  document.getElementById('ctrl-info').textContent = 'Status: Detection Active';
+  showToast('✓ DETECTION STARTED · AI ENGINE ACTIVE');
+  startUptime();
 
-        // Initialize: Fetch mock violations on page load
-        window.addEventListener('DOMContentLoaded', () => {
-            fetchRecentViolations();
-            
-            // Optional: Poll for new violations every 10 seconds
-            // setInterval(fetchRecentViolations, 10000);
-        });
+  // Add a new mock violation after a bit
+  setTimeout(() => addLiveViolation(), 4500);
+}
 
-    </script>
+// ─── STOP DETECTION ──────────────────────────────────────────────────────────
+async function stopDetection(btn) {
+  addRipple(btn, event);
+  document.getElementById('ctrl-info').textContent = 'Stopping...';
+  try {
+    await fetch('http://127.0.0.1:5000/stop');
+  } catch(e) {}
+  detecting = false;
+  setStream('http://127.0.0.1:5000/raw');
+  updateHUD(true, 'raw');
+  document.getElementById('ctrl-info').textContent = 'Status: Raw Stream';
+  showToast('■ DETECTION STOPPED · RAW STREAM ACTIVE');
+  stopUptime();
+}
+
+// ─── RIPPLE ──────────────────────────────────────────────────────────────────
+function addRipple(btn, e) {
+  const ripple = document.createElement('span');
+  ripple.className = 'ripple';
+  const rect = btn.getBoundingClientRect();
+  const size = Math.max(rect.width, rect.height) * 1.5;
+  ripple.style.cssText = `width:${size}px;height:${size}px;left:${(e?.clientX ?? rect.left + rect.width/2) - rect.left - size/2}px;top:${(e?.clientY ?? rect.top + rect.height/2) - rect.top - size/2}px`;
+  btn.appendChild(ripple);
+  setTimeout(() => ripple.remove(), 600);
+}
+
+// ─── TOAST ───────────────────────────────────────────────────────────────────
+let toastTimer;
+function showToast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => t.classList.remove('show'), 3000);
+}
+
+// ─── CLOCK ───────────────────────────────────────────────────────────────────
+function updateClock() {
+  const now = new Date();
+  document.getElementById('live-clock').textContent =
+    now.toLocaleTimeString('en-IN', { hour12: false });
+}
+updateClock();
+setInterval(updateClock, 1000);
+
+// ─── UPTIME ──────────────────────────────────────────────────────────────────
+function startUptime() {
+  uptimeSeconds = 0;
+  clearInterval(uptimeInterval);
+  uptimeInterval = setInterval(() => {
+    uptimeSeconds++;
+    const m = String(Math.floor(uptimeSeconds / 60)).padStart(2,'0');
+    const s = String(uptimeSeconds % 60).padStart(2,'0');
+    document.getElementById('stat-uptime').textContent = `${m}:${s}`;
+  }, 1000);
+}
+function stopUptime() {
+  clearInterval(uptimeInterval);
+}
+
+// ─── ADD LIVE VIOLATION ──────────────────────────────────────────────────────
+let violationCount = VIOLATIONS.length;
+function addLiveViolation() {
+  if (!detecting) return;
+  violationCount++;
+  const now = new Date().toLocaleTimeString('en-IN', { hour12: false });
+  const cams = ['CAM-01 · Gate A', 'CAM-02 · Assembly', 'CAM-03 · Shop Floor', 'CAM-04 · Loading Bay'];
+  const cam = cams[Math.floor(Math.random() * cams.length)];
+  const newV = { imgUrl: 'https://placehold.co/52x52/1a0a0a/ff4466?text=⚠', time: now, label: 'No Helmet', cam };
+
+  const container = document.getElementById('violations-list');
+  const card = document.createElement('div');
+  card.className = 'vcard';
+  card.style.animationDelay = '0s';
+  card.innerHTML = `
+    <img class="vcard-thumb" src="${newV.imgUrl}" alt="violation"/>
+    <div class="vcard-body">
+      <div class="vcard-label">${newV.label}</div>
+      <div class="vcard-cam">${newV.cam}</div>
+      <div class="vcard-time">⏱ ${newV.time}</div>
+    </div>
+    <div class="vcard-alert"><div class="alert-icon"></div></div>
+  `;
+  container.insertBefore(card, container.firstChild);
+  document.getElementById('vcount').textContent = `${violationCount} Events`;
+  document.getElementById('stat-violations').textContent = violationCount;
+
+  setTimeout(() => {
+    if (detecting) addLiveViolation();
+  }, Math.random() * 8000 + 5000);
+}
+
+// ─── PARTICLE SYSTEM ─────────────────────────────────────────────────────────
+(function initParticles() {
+  const canvas = document.getElementById('particles-canvas');
+  const ctx = canvas.getContext('2d');
+  let W, H, particles = [];
+
+  function resize() {
+    W = canvas.width = window.innerWidth;
+    H = canvas.height = window.innerHeight;
+  }
+  resize();
+  window.addEventListener('resize', resize);
+
+  class Particle {
+    constructor() { this.reset(); }
+    reset() {
+      this.x = Math.random() * W;
+      this.y = Math.random() * H;
+      this.vx = (Math.random() - 0.5) * 0.3;
+      this.vy = -Math.random() * 0.5 - 0.1;
+      this.alpha = Math.random() * 0.4 + 0.05;
+      this.r = Math.random() * 1.5 + 0.5;
+      this.color = Math.random() > 0.6
+        ? `rgba(42,80,113,${this.alpha})`
+        : `rgba(173,40,63,${this.alpha})`;
+    }
+    update() {
+      this.x += this.vx;
+      this.y += this.vy;
+      this.alpha -= 0.0008;
+      if (this.y < -10 || this.alpha <= 0) this.reset();
+    }
+    draw() {
+      ctx.beginPath();
+      ctx.arc(this.x, this.y, this.r, 0, Math.PI * 2);
+      ctx.fillStyle = this.color;
+      ctx.fill();
+    }
+  }
+
+  for (let i = 0; i < 80; i++) particles.push(new Particle());
+
+  // Light streaks
+  class Streak {
+    constructor() { this.reset(); }
+    reset() {
+      this.x = Math.random() * W;
+      this.y = Math.random() * H * 0.5;
+      this.len = Math.random() * 60 + 30;
+      this.alpha = Math.random() * 0.12 + 0.02;
+      this.speed = Math.random() * 0.8 + 0.2;
+      this.color = Math.random() > 0.5 ? '42,80,113' : '173,40,63';
+    }
+    update() {
+      this.y += this.speed;
+      if (this.y > H) this.reset();
+    }
+    draw() {
+      const grad = ctx.createLinearGradient(this.x, this.y, this.x, this.y + this.len);
+      grad.addColorStop(0, `rgba(${this.color},0)`);
+      grad.addColorStop(0.5, `rgba(${this.color},${this.alpha})`);
+      grad.addColorStop(1, `rgba(${this.color},0)`);
+      ctx.beginPath();
+      ctx.moveTo(this.x, this.y);
+      ctx.lineTo(this.x, this.y + this.len);
+      ctx.strokeStyle = grad;
+      ctx.lineWidth = Math.random() * 1.5 + 0.5;
+      ctx.stroke();
+    }
+  }
+
+  const streaks = [];
+  for (let i = 0; i < 25; i++) streaks.push(new Streak());
+
+  function loop() {
+    ctx.clearRect(0, 0, W, H);
+    particles.forEach(p => { p.update(); p.draw(); });
+    streaks.forEach(s => { s.update(); s.draw(); });
+    requestAnimationFrame(loop);
+  }
+  loop();
+})();
+</script>
 </body>
 </html>
