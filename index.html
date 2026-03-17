@@ -1,0 +1,497 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Helmet Detection System</title>
+    <link rel="icon" href="yd-favicon.png">
+    
+    <!-- Bootstrap 5 CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    
+    <!-- FontAwesome for Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+
+    <!-- Supabase JS Client (Ready for actual integration) -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+
+    <style>
+        /* === CORE THEME VARIABLES === */
+        :root {
+            --primary-color: #2a5071;
+            --accent-color: #ad283f;
+            --glass-bg: rgba(15, 30, 50, 0.65);
+            --glass-border: rgba(255, 255, 255, 0.15);
+            --text-light: #f8f9fa;
+        }
+
+        /* === BACKGROUND & TYPOGRAPHY === */
+        body {
+            background: url('ydbg.jpg') no-repeat center center fixed;
+            background-size: cover;
+            background-color: #121212; /* Fallback */
+            color: var(--text-light);
+            font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            margin: 0;
+        }
+
+        /* Smooth out scrollbar for violations panel */
+        ::-webkit-scrollbar { width: 6px; }
+        ::-webkit-scrollbar-track { background: rgba(0,0,0,0.2); }
+        ::-webkit-scrollbar-thumb { background: var(--primary-color); border-radius: 10px; }
+        ::-webkit-scrollbar-thumb:hover { background: var(--accent-color); }
+
+        /* === GLASSMORPHISM UI COMPONENTS === */
+        .glass-panel {
+            background: var(--glass-bg);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            border: 1px solid var(--glass-border);
+            border-radius: 12px;
+            box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.4);
+            padding: 1.5rem;
+            margin-bottom: 1.5rem;
+        }
+
+        /* === HEADER & FOOTER === */
+        .app-header {
+            background: rgba(42, 80, 113, 0.85);
+            backdrop-filter: blur(15px);
+            border-bottom: 3px solid var(--accent-color);
+            padding: 1rem 2rem;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.3);
+            z-index: 1000;
+        }
+
+        .header-logo {
+            max-height: 50px;
+            object-fit: contain;
+        }
+        
+        /* Fallbacks for assets if missing locally */
+        img[src="ydlogo.png"]:not([complete]) { content: url('https://placehold.co/200x50/2a5071/FFF?text=YD+LOGO'); }
+        img[src="yd-footer.png"]:not([complete]) { content: url('https://placehold.co/800x60/2a5071/FFF?text=YD+FOOTER'); }
+
+        .app-footer {
+            margin-top: auto;
+            background: rgba(0, 0, 0, 0.8);
+            backdrop-filter: blur(10px);
+            border-top: 1px solid var(--glass-border);
+            text-align: center;
+            padding: 1rem;
+        }
+
+        .footer-img {
+            max-height: 60px;
+            width: auto;
+            max-width: 100%;
+        }
+
+        /* === CAMERA STREAM SECTION === */
+        .stream-wrapper {
+            position: relative;
+            background: #000;
+            border-radius: 8px;
+            overflow: hidden;
+            min-height: 400px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border: 2px solid rgba(255,255,255,0.05);
+            box-shadow: inset 0 0 20px rgba(0,0,0,0.8);
+        }
+
+        #camera-stream {
+            width: 100%;
+            height: auto;
+            max-height: 70vh;
+            object-fit: contain;
+            transition: opacity 0.3s ease;
+        }
+
+        .stream-overlay {
+            position: absolute;
+            top: 15px;
+            right: 15px;
+            background: rgba(0, 0, 0, 0.7);
+            padding: 6px 12px;
+            border-radius: 20px;
+            font-size: 0.9rem;
+            font-weight: 600;
+            letter-spacing: 0.5px;
+            border: 1px solid rgba(255,255,255,0.2);
+            backdrop-filter: blur(4px);
+            z-index: 10;
+        }
+
+        .status-dot {
+            display: inline-block;
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            margin-right: 6px;
+        }
+        .status-raw { background-color: #4ade80; box-shadow: 0 0 8px #4ade80; }
+        .status-detecting { background-color: #facc15; box-shadow: 0 0 8px #facc15; }
+
+        .loader-spinner {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            display: none;
+            z-index: 20;
+            color: var(--accent-color);
+        }
+
+        /* === BUTTONS === */
+        .btn-custom {
+            font-weight: 600;
+            letter-spacing: 0.5px;
+            padding: 0.6rem 1.5rem;
+            border-radius: 6px;
+            transition: all 0.3s ease;
+            text-transform: uppercase;
+            font-size: 0.9rem;
+        }
+
+        .btn-start {
+            background-color: var(--primary-color);
+            border: 1px solid #4a7091;
+            color: white;
+        }
+        .btn-start:hover {
+            background-color: #1a4061;
+            transform: translateY(-2px);
+            box-shadow: 0 6px 15px rgba(42, 80, 113, 0.5);
+            color: white;
+        }
+
+        .btn-stop {
+            background-color: var(--accent-color);
+            border: 1px solid #cd485f;
+            color: white;
+        }
+        .btn-stop:hover {
+            background-color: #8d081f;
+            transform: translateY(-2px);
+            box-shadow: 0 6px 15px rgba(173, 40, 63, 0.5);
+            color: white;
+        }
+
+        /* === VIOLATIONS PANEL === */
+        .violations-container {
+            max-height: 600px;
+            overflow-y: auto;
+            padding-right: 5px;
+        }
+
+        .violation-card {
+            background: rgba(0, 0, 0, 0.4);
+            border-left: 4px solid var(--accent-color);
+            border-radius: 6px;
+            padding: 12px;
+            margin-bottom: 12px;
+            display: flex;
+            gap: 15px;
+            align-items: center;
+            transition: background 0.2s ease;
+        }
+        .violation-card:hover {
+            background: rgba(0, 0, 0, 0.6);
+        }
+
+        .violation-img {
+            width: 90px;
+            height: 90px;
+            object-fit: cover;
+            border-radius: 4px;
+            border: 1px solid rgba(255,255,255,0.1);
+        }
+
+        .violation-details h6 {
+            color: #ff6b6b;
+            font-weight: bold;
+            margin-bottom: 4px;
+        }
+        
+        .violation-details p {
+            margin: 0;
+            font-size: 0.85rem;
+            color: #ccc;
+        }
+
+        .section-title {
+            font-size: 1.25rem;
+            font-weight: 600;
+            margin-bottom: 1rem;
+            border-bottom: 1px solid rgba(255,255,255,0.1);
+            padding-bottom: 0.5rem;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+    </style>
+</head>
+<body>
+
+    <!-- HEADER -->
+    <header class="app-header d-flex justify-content-between align-items-center">
+        <div>
+            <img src="ydlogo.png" alt="Company Logo" class="header-logo" onerror="this.src='https://placehold.co/200x50/2a5071/FFF?text=YD+LOGO'">
+        </div>
+        <h3 class="m-0 text-white fw-bold d-none d-md-block" style="text-shadow: 0 2px 4px rgba(0,0,0,0.5);">
+            <i class="fas fa-hard-hat me-2" style="color: var(--accent-color);"></i>
+            Helmet Detection System
+        </h3>
+        <div class="d-flex align-items-center">
+             <span class="badge bg-success px-3 py-2 rounded-pill"><i class="fas fa-network-wired me-1"></i> System Online</span>
+        </div>
+    </header>
+
+    <!-- MAIN DASHBOARD CONTENT -->
+    <div class="container-fluid flex-grow-1 py-4 px-4">
+        <div class="row g-4">
+            
+            <!-- LEFT COLUMN: CAMERA FEED -->
+            <div class="col-lg-8">
+                <div class="glass-panel h-100 d-flex flex-column">
+                    <div class="d-flex justify-content-between align-items-center mb-3">
+                        <h4 class="section-title m-0 border-0"><i class="fas fa-video me-2"></i>Live Camera Feed</h4>
+                        
+                        <!-- CONTROLS -->
+                        <div class="btn-group gap-2" role="group">
+                            <button id="btn-start" class="btn btn-custom btn-start" onclick="startDetection()">
+                                <i class="fas fa-play me-2"></i> Start Detection
+                            </button>
+                            <button id="btn-stop" class="btn btn-custom btn-stop" onclick="stopDetection()">
+                                <i class="fas fa-stop me-2"></i> Stop Detection
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- VIDEO STREAM WRAPPER -->
+                    <div class="stream-wrapper flex-grow-1">
+                        <div class="stream-overlay">
+                            <span id="status-indicator" class="status-dot status-raw"></span>
+                            <span id="status-text">Raw Stream</span>
+                        </div>
+                        
+                        <div id="loader" class="loader-spinner">
+                            <div class="spinner-border" style="width: 3rem; height: 3rem;" role="status">
+                                <span class="visually-hidden">Loading...</span>
+                            </div>
+                        </div>
+
+                        <!-- 
+                            DEFAULT STATE: raw stream 
+                            Error fallback included so the UI doesn't look broken if backend is offline 
+                        -->
+                        <img id="camera-stream" src="http://127.0.0.1:5000/raw" alt="Camera Feed Offline" 
+                             onerror="this.onerror=null; this.src='https://placehold.co/800x450/111/444?text=CAMERA+OFFLINE\nEnsure+AI+Server+is+running+on+port+5000'">
+                    </div>
+                </div>
+            </div>
+
+            <!-- RIGHT COLUMN: VIOLATIONS -->
+            <div class="col-lg-4">
+                <div class="glass-panel h-100">
+                    <h4 class="section-title"><i class="fas fa-exclamation-triangle me-2" style="color: var(--accent-color);"></i>Recent Violations</h4>
+                    
+                    <div class="violations-container" id="violations-list">
+                        <!-- Violations will be injected here via JS -->
+                        <div class="text-center text-muted py-5" id="empty-state">
+                            <i class="fas fa-shield-alt fa-3x mb-3 opacity-50"></i>
+                            <p>No violations detected recently.</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+        </div>
+    </div>
+
+    <!-- FOOTER -->
+    <footer class="app-footer">
+        <img src="yd-footer.png" alt="Footer Banner" class="footer-img" onerror="this.src='https://placehold.co/800x60/1a1a1a/FFF?text=YD+FOOTER+GRAPHIC'">
+    </footer>
+
+    <!-- Bootstrap 5 JS -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.css"></script>
+
+    <!-- DASHBOARD LOGIC -->
+    <script>
+        // ==========================================
+        // CONFIGURATION
+        // ==========================================
+        // Change this IP to the local IP of the machine running the Python AI server.
+        // Example: '192.168.1.100'
+        const AI_SERVER_IP = '127.0.0.1'; 
+        const AI_SERVER_PORT = '5000';
+        const API_BASE_URL = `http://${AI_SERVER_IP}:${AI_SERVER_PORT}`;
+
+        // ==========================================
+        // DOM ELEMENTS
+        // ==========================================
+        const streamImg = document.getElementById('camera-stream');
+        const loader = document.getElementById('loader');
+        const statusText = document.getElementById('status-text');
+        const statusIndicator = document.getElementById('status-indicator');
+        const violationsList = document.getElementById('violations-list');
+        const emptyState = document.getElementById('empty-state');
+
+        // ==========================================
+        // CAMERA STREAM LOGIC
+        // ==========================================
+        
+        function setStreamLoading(isLoading) {
+            if (isLoading) {
+                loader.style.display = 'block';
+                streamImg.style.opacity = '0.3';
+            } else {
+                loader.style.display = 'none';
+                streamImg.style.opacity = '1';
+            }
+        }
+
+        async function startDetection() {
+            setStreamLoading(true);
+            try {
+                // 1. Send the command to start the AI loop
+                await fetch(`${API_BASE_URL}/start`, { mode: 'no-cors' });
+                
+                // 2. Switch the image source to the processed stream
+                // The timestamp cache-buster forces the browser to load the new stream
+                const timestamp = new Date().getTime();
+                streamImg.src = `${API_BASE_URL}/?t=${timestamp}`;
+                
+                // 3. Update UI indicators
+                statusText.innerText = "Detection Active";
+                statusIndicator.className = "status-dot status-detecting";
+                
+            } catch (error) {
+                console.error("Error starting detection:", error);
+                alert(`Failed to communicate with AI server at ${API_BASE_URL}.\nEnsure backend is running and on the same LAN.`);
+            }
+            
+            // Remove loader after a brief moment to allow stream to buffer
+            setTimeout(() => setStreamLoading(false), 1200);
+        }
+
+        async function stopDetection() {
+            setStreamLoading(true);
+            try {
+                // 1. Send the command to stop the AI loop
+                await fetch(`${API_BASE_URL}/stop`, { mode: 'no-cors' });
+                
+                // 2. Switch the image source back to the raw stream
+                const timestamp = new Date().getTime();
+                streamImg.src = `${API_BASE_URL}/raw?t=${timestamp}`;
+                
+                // 3. Update UI indicators
+                statusText.innerText = "Raw Stream";
+                statusIndicator.className = "status-dot status-raw";
+                
+            } catch (error) {
+                console.error("Error stopping detection:", error);
+            }
+            
+            setTimeout(() => setStreamLoading(false), 1200);
+        }
+
+        // ==========================================
+        // SUPABASE VIOLATIONS LOGIC
+        // ==========================================
+        
+        /* * INSTRUCTIONS FOR SUPABASE INTEGRATION:
+         * 1. Uncomment the initialization code below.
+         * 2. Replace the URL and ANON_KEY with your actual Supabase credentials.
+         * 3. Ensure your bucket is public, or that you generate signed URLs.
+         */
+        
+        // const SUPABASE_URL = 'https://your-project-ref.supabase.co';
+        // const SUPABASE_ANON_KEY = 'your-anon-key';
+        // const supabase = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+        async function fetchRecentViolations() {
+            // --- MOCK DATA FOR DEMONSTRATION PURPOSES ---
+            // Remove this mock data array when connecting your actual Supabase bucket
+            const mockData = [
+                { id: 1, time: new Date().toLocaleTimeString(), imgUrl: 'https://images.unsplash.com/photo-1504328345606-18bbc8c9d7d1?auto=format&fit=crop&w=200&q=80' },
+                { id: 2, time: new Date(Date.now() - 300000).toLocaleTimeString(), imgUrl: 'https://images.unsplash.com/photo-1541888086425-d81bb19240f5?auto=format&fit=crop&w=200&q=80' },
+                { id: 3, time: new Date(Date.now() - 900000).toLocaleTimeString(), imgUrl: 'https://images.unsplash.com/photo-1581091226825-a6a2a5aee158?auto=format&fit=crop&w=200&q=80' }
+            ];
+
+            try {
+                /*
+                // --- ACTUAL SUPABASE FETCH LOGIC ---
+                // Example assuming you have a database table 'violations' that stores the image filename/path
+                
+                const { data, error } = await supabase
+                    .from('violations')
+                    .select('*')
+                    .order('created_at', { ascending: false })
+                    .limit(10);
+                    
+                if (error) throw error;
+                
+                const violations = data.map(record => {
+                    // Get public URL for the image in the storage bucket
+                    const { data: imgData } = supabase.storage
+                        .from('violation-images')
+                        .getPublicUrl(record.image_path);
+                        
+                    return {
+                        id: record.id,
+                        time: new Date(record.created_at).toLocaleTimeString(),
+                        imgUrl: imgData.publicUrl
+                    };
+                });
+                */
+                
+                const violations = mockData; // Replace with 'violations' variable from above
+
+                renderViolations(violations);
+
+            } catch (error) {
+                console.error("Error fetching violations:", error);
+            }
+        }
+
+        function renderViolations(violations) {
+            if (!violations || violations.length === 0) return;
+            
+            // Hide empty state message
+            if(emptyState) emptyState.style.display = 'none';
+
+            // Clear existing list (optional, depending on if you are appending or replacing)
+            violationsList.innerHTML = '';
+
+            violations.forEach(v => {
+                const card = document.createElement('div');
+                card.className = 'violation-card';
+                card.innerHTML = `
+                    <img src="${v.imgUrl}" alt="Violation Snapshot" class="violation-img">
+                    <div class="violation-details">
+                        <h6><i class="fas fa-ban me-1"></i> No Helmet</h6>
+                        <p><i class="far fa-clock me-1"></i> ${v.time}</p>
+                        <p class="text-white-50 mt-1" style="font-size: 0.75rem;">Camera: Main Entrance</p>
+                    </div>
+                `;
+                violationsList.appendChild(card);
+            });
+        }
+
+        // Initialize: Fetch mock violations on page load
+        window.addEventListener('DOMContentLoaded', () => {
+            fetchRecentViolations();
+            
+            // Optional: Poll for new violations every 10 seconds
+            // setInterval(fetchRecentViolations, 10000);
+        });
+
+    </script>
+</body>
+</html>
