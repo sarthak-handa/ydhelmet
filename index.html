@@ -563,7 +563,7 @@
           <div class="btn-icon"></div> Stop Detection
         </button>
         <div class="controls-info">
-          <div id="backend-label">BACKEND · Initializing...</div><div id="ctrl-info">Status: Checking configuration</div>
+          <div>BACKEND · 127.0.0.1:5000</div><div id="ctrl-info">Status: Idle</div>
         </div>
       </div>
 
@@ -604,108 +604,8 @@ let detecting = false;
 let uptimeInterval = null;
 let uptimeSeconds = 0;
 let allowStartDetectionToast = true;
-let violationsPollInterval = null;
-let backendOffline = false;
-const DEFAULT_LOCAL_API_BASE = 'http://127.0.0.1:5000';
-const PAGE_QUERY = new URLSearchParams(window.location.search);
-const API_BASE = resolveApiBase(PAGE_QUERY.get('apiBase') || window.YD_HELMET_API_BASE || '');
-const LOCAL_DETECTION_VIDEO_FILE = PAGE_QUERY.get('demoVideo') || window.YD_HELMET_DEMO_VIDEO || '';
-const PLAY_LOCAL_DETECTION_VIDEO = Boolean(LOCAL_DETECTION_VIDEO_FILE);
-
-function resolveApiBase(configuredBase) {
-  const trimmedBase = (configuredBase || '').trim();
-  if (trimmedBase) {
-    return trimmedBase.replace(/\/+$/, '');
-  }
-
-  const isLocalPage = ['localhost', '127.0.0.1'].includes(window.location.hostname) || window.location.protocol === 'file:';
-  return isLocalPage ? DEFAULT_LOCAL_API_BASE : '';
-}
-
-function isMixedContentApi(base = API_BASE) {
-  if (!base) return false;
-
-  try {
-    const target = new URL(base, window.location.href);
-    return window.location.protocol === 'https:' && target.protocol === 'http:';
-  } catch (e) {
-    return false;
-  }
-}
-
-function hasUsableBackend() {
-  return Boolean(API_BASE) && !isMixedContentApi();
-}
-
-function apiUrl(path) {
-  return API_BASE ? `${API_BASE}${path}` : '';
-}
-
-function withCacheBust(url) {
-  return `${url}${url.includes('?') ? '&' : '?'}t=${Date.now()}`;
-}
-
-function setNoStreamMessage(message) {
-  document.querySelector('#no-stream-msg span').textContent = message;
-}
-
-function getIdleStatusText() {
-  if (!API_BASE) {
-    return PLAY_LOCAL_DETECTION_VIDEO ? 'Status: Demo mode ready' : 'Status: No backend configured';
-  }
-
-  if (isMixedContentApi()) {
-    return 'Status: HTTPS page requires an HTTPS API';
-  }
-
-  if (backendOffline) {
-    return 'Status: Backend unavailable';
-  }
-
-  return 'Status: Idle';
-}
-
-function syncBackendUi() {
-  const backendLabel = document.getElementById('backend-label');
-
-  if (!API_BASE) {
-    backendLabel.textContent = 'BACKEND · Demo / Static Only';
-    setNoStreamMessage(PLAY_LOCAL_DETECTION_VIDEO
-      ? 'DEMO READY — START DETECTION TO PLAY LOCAL VIDEO'
-      : 'NO BACKEND CONFIGURED — ADD ?apiBase=https://your-api');
-  } else if (isMixedContentApi()) {
-    backendLabel.textContent = 'BACKEND · HTTPS API Required';
-    setNoStreamMessage('THIS HTTPS PAGE CANNOT LOAD AN HTTP STREAM');
-  } else if (backendOffline) {
-    backendLabel.textContent = `BACKEND · Offline (${API_BASE})`;
-    setNoStreamMessage('BACKEND OFFLINE — START THE API AND TRY AGAIN');
-  } else {
-    backendLabel.textContent = `BACKEND · ${API_BASE}`;
-    setNoStreamMessage('STREAM NOT ACTIVE — START DETECTION TO BEGIN');
-  }
-
-  if (!detecting) {
-    document.getElementById('ctrl-info').textContent = getIdleStatusText();
-  }
-}
-
-function stopViolationsPolling() {
-  if (!violationsPollInterval) return;
-  clearInterval(violationsPollInterval);
-  violationsPollInterval = null;
-}
-
-function startViolationsPolling() {
-  if (!hasUsableBackend() || violationsPollInterval) return;
-  fetchRealViolations();
-  violationsPollInterval = setInterval(fetchRealViolations, 3000);
-}
-
-function markBackendOffline() {
-  backendOffline = true;
-  stopViolationsPolling();
-  syncBackendUi();
-}
+const PLAY_LOCAL_DETECTION_VIDEO = true;
+const LOCAL_DETECTION_VIDEO_FILE = 'Screen Recording 2026-03-16 160453.mp4';
 
 // ─── RENDER VIOLATIONS (LIVE API READY) ──────────────────────────────────────
 function renderViolations(list) {
@@ -745,17 +645,12 @@ function renderViolations(list) {
 
 // ─── REAL DATA FETCH ─────────────────────────────────────────────────────────
 async function fetchRealViolations() {
-  if (!hasUsableBackend() || backendOffline) return;
-
   try {
-    const res = await fetch(apiUrl('/violations'));
-    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const res = await fetch('http://127.0.0.1:5000/violations');
     const data = await res.json();
-    backendOffline = false;
-    syncBackendUi();
 
     const formatted = data.map(v => ({
-      imgUrl: apiUrl(`/violations/${encodeURIComponent(v.filename)}`),
+      imgUrl: `http://127.0.0.1:5000/violations/${v.filename}`,
       time: v.time || "recent",
       label: "No Helmet",
       cam: "AI Camera"
@@ -767,12 +662,13 @@ async function fetchRealViolations() {
     document.getElementById('stat-violations').textContent = seenViolations.size;
 
   } catch (e) {
-    markBackendOffline();
+    console.log("fetch failed", e);
   }
 }
 
-syncBackendUi();
-startViolationsPolling();
+// Start polling immediately
+fetchRealViolations();
+setInterval(fetchRealViolations, 3000);
 
 // ─── STREAM STATE ────────────────────────────────────────────────────────────
 function setStream(url) {
@@ -789,7 +685,7 @@ function setStream(url) {
   video.style.display = 'none';
 
   if (url) {
-    img.src = withCacheBust(url);
+    img.src = url + '?t=' + Date.now();
     img.style.display = 'block';
     noMsg.style.display = 'none';
   } else {
@@ -823,7 +719,7 @@ async function playLocalDetectionVideo() {
 
   video.pause();
   video.currentTime = 0;
-  video.src = withCacheBust(encodeURI(LOCAL_DETECTION_VIDEO_FILE));
+  video.src = encodeURI(LOCAL_DETECTION_VIDEO_FILE) + '?t=' + Date.now();
 
   try {
     await video.play();
@@ -878,49 +774,24 @@ function updateHUD(active, mode) {
 // ─── START DETECTION ─────────────────────────────────────────────────────────
 async function startDetection(btn) {
   addRipple(btn, event);
-  document.getElementById('ctrl-info').textContent = hasUsableBackend() ? 'Connecting...' : 'Starting demo...';
-
-  let backendStarted = false;
-  if (hasUsableBackend()) {
-    try {
-      const res = await fetch(apiUrl('/start'));
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      backendOffline = false;
-      startViolationsPolling();
-      backendStarted = true;
-    } catch (e) {
-      markBackendOffline();
-    }
-  }
-
-  let demoVideoReady = false;
+  document.getElementById('ctrl-info').textContent = 'Connecting...';
+  try {
+    await fetch('http://127.0.0.1:5000/start');
+  } catch(e) {}
+  
+  detecting = true;
+  let demoVideoReady = true;
   if (PLAY_LOCAL_DETECTION_VIDEO) {
     demoVideoReady = await playLocalDetectionVideo();
-  } else if (backendStarted) {
-    setStream(apiUrl('/'));
   } else {
-    setStream(null);
+    setStream('http://127.0.0.1:5000/');
   }
-
-  if (!backendStarted && !demoVideoReady) {
-    detecting = false;
-    updateHUD(false);
-    document.getElementById('ctrl-info').textContent = getIdleStatusText();
-    showToast(hasUsableBackend() ? 'BACKEND UNAVAILABLE' : 'CONFIGURE API OR DEMO VIDEO');
-    return;
-  }
-
-  detecting = true;
   updateHUD(true, 'detecting');
-  document.getElementById('ctrl-info').textContent = demoVideoReady && !backendStarted
-    ? 'Status: Demo detection active'
-    : demoVideoReady
-      ? 'Status: Detection active (Demo Video)'
-      : 'Status: Detection active';
-  allowStartDetectionToast = demoVideoReady || backendStarted;
-  showToast(demoVideoReady && !backendStarted
-    ? 'DEMO DETECTION ACTIVE'
-    : 'DETECTION STARTED · AI ENGINE ACTIVE');
+  document.getElementById('ctrl-info').textContent = demoVideoReady
+    ? 'Status: Detection Active'
+    : 'Status: Detection Active (No Demo Video)';
+  allowStartDetectionToast = demoVideoReady;
+  showToast('✓ DETECTION STARTED · AI ENGINE ACTIVE');
   startUptime();
 }
 
@@ -928,33 +799,15 @@ async function startDetection(btn) {
 async function stopDetection(btn) {
   addRipple(btn, event);
   document.getElementById('ctrl-info').textContent = 'Stopping...';
-
-  let backendStopped = false;
-  if (hasUsableBackend()) {
-    try {
-      const res = await fetch(apiUrl('/stop'));
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      backendOffline = false;
-      backendStopped = true;
-    } catch (e) {
-      markBackendOffline();
-    }
-  }
-
+  try {
+    await fetch('http://127.0.0.1:5000/stop');
+  } catch(e) {}
+  
   detecting = false;
-
-  if (backendStopped) {
-    setStream(apiUrl('/raw'));
-    updateHUD(true, 'raw');
-    document.getElementById('ctrl-info').textContent = 'Status: Raw stream';
-    showToast('DETECTION STOPPED · RAW STREAM ACTIVE');
-  } else {
-    setStream(null);
-    updateHUD(false);
-    syncBackendUi();
-    showToast('DETECTION STOPPED');
-  }
-
+  setStream('http://127.0.0.1:5000/raw');
+  updateHUD(true, 'raw');
+  document.getElementById('ctrl-info').textContent = 'Status: Raw Stream';
+  showToast('■ DETECTION STOPPED · RAW STREAM ACTIVE');
   stopUptime();
 }
 
